@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         IG Focus — DMs Only
 // @namespace    https://github.com/ElSigmaTom/focus-userscripts
-// @version      2.0.6
+// @version      2.0.7
 // @description  Strip IG to /direct/inbox/ only. Hide nav/badges/feed/reels/explore/stories. Force-close reels on scroll. Auto-mark-read.
 // @author       ElSigmaTom
 // @match        https://instagram.com/*
@@ -18,7 +18,7 @@
 
   const TAG = '[IG-FOCUS]';
   const log = (...args) => console.log(TAG, ...args);
-  log('v2.0.6 loaded at', location.href);
+  log('v2.0.7 loaded at', location.href);
   console.warn('[IG-FOCUS] USERSCRIPT IS RUNNING:', {
     href: location.href,
     readyState: document.readyState,
@@ -264,7 +264,13 @@
   }
 
   function scanThreadList() {
-    const rows = document.querySelectorAll('a[href^="/direct/t/"], div[role="listitem"]');
+    const rows = document.querySelectorAll(
+      'a[href^="/direct/t/"], div[role="listitem"], [role="list"] > div, [role="grid"] [role="row"]'
+    );
+    if (rows.length && !window.__if_threadLog) {
+      window.__if_threadLog = true;
+      log('Found', rows.length, 'thread rows');
+    }
     rows.forEach(processThreadRow);
   }
 
