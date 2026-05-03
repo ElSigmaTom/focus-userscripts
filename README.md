@@ -1,28 +1,8 @@
-# focus-userscripts
+# 🎯 Focus Userscripts
 
-Tampermonkey scripts that strip Facebook and Instagram down to messaging-only — for when the only legitimate reason to open them is to talk to one specific person.
+**Strip Facebook & Instagram down to just messages.** No feed. No reels. No marketplace. No distractions. Just conversations.
 
-Built on top of proven cleaner scripts:
-- IG: [highda/instagram-distraction-free-js](https://github.com/highda/instagram-distraction-free-js) sidebar-hide pattern
-- FB: [Hide Facebook Reels Completely](https://greasyfork.org/en/scripts/452724) text-content matching pattern
-
-## Install
-
-1. Install [Violentmonkey](https://violentmonkey.github.io/) (recommended) or [Tampermonkey](https://www.tampermonkey.net/). **Brave users**: Tampermonkey doesn't inject on Facebook — use Violentmonkey.
-2. Click these raw URLs — your extension will prompt to install:
-   - **FB**: https://raw.githubusercontent.com/ElSigmaTom/focus-userscripts/main/fb-focus.user.js
-   - **IG**: https://raw.githubusercontent.com/ElSigmaTom/focus-userscripts/main/ig-focus.user.js
-3. Reload `facebook.com` and `instagram.com`.
-
-## How to verify it's working
-
-Both scripts now show a **floating green "FB Focus v2 ✓" / "IG Focus v2 ✓" badge** in the bottom-right corner of every page they're active on. If you don't see it, the script isn't loading — check:
-
-1. Tampermonkey dashboard → script is **enabled** (not just installed)
-2. The script's match pattern includes the URL you're on
-3. Open DevTools (F12) → Console tab — search for `[FB-FOCUS]` or `[IG-FOCUS]` — you should see a "v2.0.0 loaded" log line plus periodic activity
-
-## Before & After
+## 📸 Before & After
 
 ### Facebook
 ![Facebook before and after](images/facebook.png)
@@ -30,58 +10,33 @@ Both scripts now show a **floating green "FB Focus v2 ✓" / "IG Focus v2 ✓" b
 ### Instagram
 ![Instagram before and after](images/insta.png)
 
-## What each does
+## ✨ What it does
 
-### FB
-- Redirects `/`, `/home`, `/marketplace`, `/reels/`, `/watch`, `/groups/feed`, etc. → `/messages`.
-- Hides Home / Reels / Marketplace / Watch / Groups / Gaming / Memories / Saved / Friends / Notifications / Friend requests / Stories nav items by:
-  - `aria-label` direct match (CSS)
-  - Text-content matching (JS) — finds spans containing the words above and climbs up to the link/listitem container to hide
-- Hides red unread/notification badges via `aria-label*="unread"` etc.
-- Hides right-rail Sponsored / Marketplace / Reels / "People you may know" panels.
-- Reels viewer: any wheel/swipe/PageDown/Space/Arrow → closes the reel.
-- Thread previews:
-  - Read threads → only avatar + name visible (preview text, emoji, timestamps all hidden).
-  - Unread threads → full preview text + bold name (default FB look).
-- Auto-mark-read: disabled by default. Set `ENABLE_AUTO_MARK_READ = true` in the script to enable.
+- 🚀 **Auto-redirects** to your messages when you open FB or IG
+- 🙈 **Hides everything** — feed, reels, marketplace, stories, explore, notifications
+- 💬 **Clean chat list** — read threads show only avatar + name, no preview clutter
+- 🆕 **New messages stay visible** — unread threads show the full preview so you don't miss anything
+- 🎬 **Reel trap protection** — if someone sends you a reel, scrolling instantly closes it (watch once, move on)
+- 📱 **Sidebar stays collapsed** on IG (icons only, no text labels)
 
-### IG
-- Redirects `/`, `/explore/`, `/reels/`, `/stories/` → `/direct/inbox/`.
-- Allows `/<username>/`, `/p/<id>/`, `/reel/<id>/` (singular DM share), `/accounts/*` (logout).
-- Hides Home / Search / Explore / Reels / Notifications / New post / Threads / AI Studio nav items.
-- Hides Stories tray + Notes tray inside DM inbox.
-- Reels viewer: same scroll-close behavior as FB.
-- Sidebar stays collapsed (icons only, no text labels on hover).
-- Thread previews: same as FB — read threads show avatar + name only, unread show full preview.
-- Auto-mark-read: disabled by default. Set `ENABLE_AUTO_MARK_READ = true` to enable.
+## 📥 Install
 
-## Caveats
+1. Install [Violentmonkey](https://violentmonkey.github.io/) (recommended) or [Tampermonkey](https://www.tampermonkey.net/)
+   > ⚠️ **Brave users**: use Violentmonkey — Tampermonkey doesn't work on Facebook in Brave
+2. Click to install:
+   - **[📘 Facebook Focus](https://raw.githubusercontent.com/ElSigmaTom/focus-userscripts/main/fb-focus.user.js)**
+   - **[📷 Instagram Focus](https://raw.githubusercontent.com/ElSigmaTom/focus-userscripts/main/ig-focus.user.js)**
+3. Refresh Facebook / Instagram. Done! ✅
 
-### Selectors break
+You'll see a small green **"FB Focus v2 ✓"** or **"IG Focus v2 ✓"** badge in the bottom-right corner when it's active.
 
-FB/IG rotate class names constantly. If selectors fall out of date:
+## 🤔 Something not hidden?
 
-1. Open DevTools → Console → look for `[FB-FOCUS]` / `[IG-FOCUS]` logs — they'll tell you what's being hidden and what's failing.
-2. Inspect the element that should be hidden but isn't. Look for `aria-label`, `href`, or stable text content.
-3. Add it to:
-   - `HIDE_NAV_TEXTS` array (FB) for text matching, or `aria-label` selectors in `CSS`
-   - `HIDE_HREFS` / `HIDE_ARIA_LABELS` arrays (IG)
-4. Bump version + push to GitHub. Tampermonkey checks daily for updates (force via dashboard).
+FB and IG change their code often. If something slips through:
 
-### Read receipts get sent (delayed 30 min)
+1. Open DevTools (F12) → Console → look for `[FB-FOCUS]` or `[IG-FOCUS]` logs
+2. [Open an issue](https://github.com/ElSigmaTom/focus-userscripts/issues) with a screenshot
 
-When the script auto-marks a message thread, your friend sees "Seen" on chat after the 30-min delay. To disable: change `MARK_DELAY = 30 * 60 * 1000` to a huge number, or comment out `markMessagesRead()` / `tryApiMarkRead()` in the run loop.
+## 📄 License
 
-### v1 → v2 changes
-
-v1 didn't work — selectors were too narrow and there was no diagnostic logging. v2:
-- Combines text-content matching with aria-label selectors (more resilient)
-- Floating green badge on every page so you see if it loaded
-- Heavy console.log so you can debug
-- 1-second fast-scan during the first 10s after page load (FB/IG hydrate async)
-- Steady 60s tick after that
-- MutationObserver on `body` to catch SPA route changes
-
-## License
-
-MIT.
+MIT — do whatever you want with it.
