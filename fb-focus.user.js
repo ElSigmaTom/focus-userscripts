@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         FB Focus — Messages Only
 // @namespace    https://github.com/ElSigmaTom/focus-userscripts
-// @version      2.1.0
+// @version      2.1.1
 // @description  Strip FB to /messages only. Hide nav/badges/feed/reels/marketplace. Redirect home to messages. Force-close reels on scroll. Auto-mark-read.
 // @author       ElSigmaTom
 // @match        https://facebook.com/*
@@ -21,7 +21,7 @@
 
   const TAG = '[FB-FOCUS]';
   const log = (...args) => console.log(TAG, ...args);
-  log('v2.1.0 loaded at', location.href);
+  log('v2.1.1 loaded at', location.href);
   console.warn('[FB-FOCUS] USERSCRIPT IS RUNNING:', {
     href: location.href,
     readyState: document.readyState,
@@ -177,14 +177,19 @@
   // Read threads → hide preview text. Unread → leave it.
   // =========================================================
   function isRowUnread(row) {
+    // Check for aria-label unread indicator
     if (row.querySelector('[aria-label*="unread" i]')) return true;
-    const spans = row.querySelectorAll('span');
-    let n = 0;
-    for (const s of spans) {
-      if (++n > 30) break;
-      const fw = parseInt(getComputedStyle(s).fontWeight || '400', 10);
-      if (fw >= 600) return true;
+    // Check for small blue/filled dot (FB's unread marker)
+    const els = row.querySelectorAll('div, span');
+    for (const d of els) {
+      const r = d.getBoundingClientRect();
+      if (r.width < 6 || r.width > 16 || r.height < 6 || r.height > 16) continue;
+      const bg = getComputedStyle(d).backgroundColor;
+      if (!bg || bg === 'transparent' || bg === 'rgba(0, 0, 0, 0)') continue;
+      const m = bg.match(/rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)/);
+      if (m && +m[3] > 180 && +m[1] < 120 && +m[2] < 180) return true;
     }
+    // Don't use font-weight — FB always bolds the name even on read threads
     return false;
   }
 
