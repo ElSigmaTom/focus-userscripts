@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         IG Focus — DMs Only
 // @namespace    https://github.com/ElSigmaTom/focus-userscripts
-// @version      2.0.8
+// @version      2.0.9
 // @description  Strip IG to /direct/inbox/ only. Hide nav/badges/feed/reels/explore/stories. Force-close reels on scroll. Auto-mark-read.
 // @author       ElSigmaTom
 // @match        https://instagram.com/*
@@ -18,7 +18,7 @@
 
   const TAG = '[IG-FOCUS]';
   const log = (...args) => console.log(TAG, ...args);
-  log('v2.0.8 loaded at', location.href);
+  log('v2.0.9 loaded at', location.href);
   console.warn('[IG-FOCUS] USERSCRIPT IS RUNNING:', {
     href: location.href,
     readyState: document.readyState,
@@ -236,29 +236,43 @@
   // =========================================================
   function isRowUnread(row) {
     if (row.querySelector('[aria-label*="unread" i]')) return true;
-    const spans = row.querySelectorAll('span');
-    let n = 0;
-    for (const s of spans) {
-      if (++n > 30) break;
-      const fw = parseInt(getComputedStyle(s).fontWeight || '400', 10);
-      if (fw >= 600) return true;
+    // IG uses a small blue dot for unread — look for tiny styled elements
+    const dots = row.querySelectorAll('div, span');
+    for (const d of dots) {
+      const r = d.getBoundingClientRect();
+      if (r.width >= 6 && r.width <= 14 && r.height >= 6 && r.height <= 14) {
+        const bg = getComputedStyle(d).backgroundColor;
+        if (bg && /rgb\(\s*0\s*,\s*(?:1[4-9]\d|[2-9]\d\d)\s*,\s*(?:1[4-9]\d|[2-9]\d\d)\s*\)/.test(bg)) return true;
+        if (bg && bg.includes('55') && bg.includes('151')) return true;
+        // Generic blue check
+        const m = bg.match(/rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)/);
+        if (m && +m[3] > 200 && +m[1] < 100) return true;
+      }
     }
     return false;
   }
 
   function processThreadRow(row) {
+    if (row.dataset.__if_done === '1') return;
     const unread = isRowUnread(row);
-    const all = Array.from(row.querySelectorAll('[dir="auto"]'));
-    const topLevel = all.filter(el => {
-      let p = el.parentElement;
-      while (p && p !== row) {
-        if (p.getAttribute && p.getAttribute('dir') === 'auto') return false;
-        p = p.parentElement;
+    // Find text-bearing leaf spans (no child spans with text content)
+    const allSpans = Array.from(row.querySelectorAll('span, [dir="auto"]'));
+    const leaves = allSpans.filter(s => {
+      const txt = (s.textContent || '').trim();
+      if (!txt || txt.length > 200) return false;
+      const kids = s.querySelectorAll('span, [dir="auto"]');
+      for (const k of kids) {
+        if (k !== s && (k.textContent || '').trim()) return false;
       }
       return true;
     });
+    if (leaves.length < 2) return;
+    if (!window.__if_rowLog) {
+      window.__if_rowLog = true;
+      log('processThreadRow leaves:', leaves.length, leaves.map(l => (l.textContent||'').trim().slice(0,30)));
+    }
     let nameFound = false;
-    for (const el of topLevel) {
+    for (const el of leaves) {
       const txt = (el.textContent || '').trim();
       if (!txt) continue;
       if (!nameFound) { nameFound = true; continue; }
@@ -271,7 +285,7 @@
     // IG thread rows don't have stable ARIA roles. Find them by structure:
     // each thread has a circular avatar img. Find those, climb to the row container.
     const seen = new Set();
-    const imgs = document.querySelectorAll('img[draggable="false"][alt]');
+    const imgs = document.querySelectorAll('img[alt]');
     for (const img of imgs) {
       const rect = img.getBoundingClientRect();
       if (rect.width < 30 || rect.width > 80) continue;
