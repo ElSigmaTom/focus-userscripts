@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         FB Focus — Messages Only
 // @namespace    https://github.com/ElSigmaTom/focus-userscripts
-// @version      2.1.1
+// @version      2.1.2
 // @description  Strip FB to /messages only. Hide nav/badges/feed/reels/marketplace. Redirect home to messages. Force-close reels on scroll. Auto-mark-read.
 // @author       ElSigmaTom
 // @match        https://facebook.com/*
@@ -21,7 +21,7 @@
 
   const TAG = '[FB-FOCUS]';
   const log = (...args) => console.log(TAG, ...args);
-  log('v2.1.1 loaded at', location.href);
+  log('v2.1.2 loaded at', location.href);
   console.warn('[FB-FOCUS] USERSCRIPT IS RUNNING:', {
     href: location.href,
     readyState: document.readyState,
@@ -195,25 +195,33 @@
 
   function processThreadRow(row) {
     const unread = isRowUnread(row);
-    // [dir="auto"] is FB's attribute for user-facing text spans.
-    // Filter to top-level only (not nested inside another [dir="auto"]).
-    // First top-level = name. Everything after = preview / timestamp / metadata.
-    const all = Array.from(row.querySelectorAll('[dir="auto"]'));
-    const topLevel = all.filter(el => {
-      let p = el.parentElement;
-      while (p && p !== row) {
-        if (p.getAttribute && p.getAttribute('dir') === 'auto') return false;
-        p = p.parentElement;
+    // Strategy: find the first [dir="auto"] (the name), then climb to its
+    // parent container. That container's siblings hold the preview row
+    // (text + emoji + timestamp). Hide those sibling containers for read threads.
+    const firstDirAuto = row.querySelector('[dir="auto"]');
+    if (!firstDirAuto) return;
+    // Find the "name row" container — climb up from the name span until we hit
+    // a div that has siblings (the preview row is a sibling div)
+    let nameRow = firstDirAuto;
+    while (nameRow.parentElement && nameRow.parentElement !== row) {
+      const parent = nameRow.parentElement;
+      const siblings = Array.from(parent.children);
+      if (siblings.length > 1) {
+        // This parent has multiple children — nameRow is one of them,
+        // the rest are preview/metadata rows
+        let pastName = false;
+        for (const sib of siblings) {
+          if (sib === nameRow || sib.contains(nameRow)) {
+            pastName = true;
+            continue;
+          }
+          if (!pastName) continue;
+          if (unread) sib.classList.remove('__ff_hide_preview');
+          else sib.classList.add('__ff_hide_preview');
+        }
+        return;
       }
-      return true;
-    });
-    let nameFound = false;
-    for (const el of topLevel) {
-      const txt = (el.textContent || '').trim();
-      if (!txt) continue;
-      if (!nameFound) { nameFound = true; continue; }
-      if (unread) el.classList.remove('__ff_hide_preview');
-      else el.classList.add('__ff_hide_preview');
+      nameRow = parent;
     }
   }
 
