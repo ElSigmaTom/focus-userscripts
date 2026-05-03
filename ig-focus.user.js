@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         IG Focus — DMs Only
 // @namespace    https://github.com/ElSigmaTom/focus-userscripts
-// @version      2.0.9
+// @version      2.1.0
 // @description  Strip IG to /direct/inbox/ only. Hide nav/badges/feed/reels/explore/stories. Force-close reels on scroll. Auto-mark-read.
 // @author       ElSigmaTom
 // @match        https://instagram.com/*
@@ -18,16 +18,15 @@
 
   const TAG = '[IG-FOCUS]';
   const log = (...args) => console.log(TAG, ...args);
-  log('v2.0.9 loaded at', location.href);
+  log('v2.1.0 loaded at', location.href);
   console.warn('[IG-FOCUS] USERSCRIPT IS RUNNING:', {
     href: location.href,
     readyState: document.readyState,
     hidden: document.hidden
   });
 
-  // TEST_MODE: when true, auto-mark-read fires even if tab is active (so you
-  // can see logs without backgrounding the tab). Flip back to false in normal use.
-  const TEST_MODE = true;
+  const TEST_MODE = false;
+  const ENABLE_AUTO_MARK_READ = false;
 
   // =========================================================
   // 1. HARD REDIRECT (document-start)
@@ -477,8 +476,10 @@
     hideSidebarItems();
     scanThreadList();
     checkReel();
-    markNotificationsRead();
-    tryApiMarkRead();
+    if (ENABLE_AUTO_MARK_READ) {
+      markNotificationsRead();
+      tryApiMarkRead();
+    }
   }
 
   function start() {

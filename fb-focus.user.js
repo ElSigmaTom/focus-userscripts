@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         FB Focus — Messages Only
 // @namespace    https://github.com/ElSigmaTom/focus-userscripts
-// @version      2.0.6
+// @version      2.1.0
 // @description  Strip FB to /messages only. Hide nav/badges/feed/reels/marketplace. Redirect home to messages. Force-close reels on scroll. Auto-mark-read.
 // @author       ElSigmaTom
 // @match        https://facebook.com/*
@@ -21,16 +21,15 @@
 
   const TAG = '[FB-FOCUS]';
   const log = (...args) => console.log(TAG, ...args);
-  log('v2.0.6 loaded at', location.href);
+  log('v2.1.0 loaded at', location.href);
   console.warn('[FB-FOCUS] USERSCRIPT IS RUNNING:', {
     href: location.href,
     readyState: document.readyState,
     hidden: document.hidden
   });
 
-  // TEST_MODE: when true, auto-mark-read fires even if tab is active (so you
-  // can see logs without backgrounding the tab). Flip back to false in normal use.
-  const TEST_MODE = true;
+  const TEST_MODE = false;
+  const ENABLE_AUTO_MARK_READ = false;
 
   // =========================================================
   // 1. HARD REDIRECT (runs at document-start, before paint)
@@ -406,8 +405,10 @@
     hideNavByText();
     scanThreadList();
     checkReel();
-    markNotificationsRead();
-    markMessagesRead();
+    if (ENABLE_AUTO_MARK_READ) {
+      markNotificationsRead();
+      markMessagesRead();
+    }
   }
 
   function start() {
