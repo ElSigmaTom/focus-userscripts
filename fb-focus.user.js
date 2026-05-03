@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         FB Focus — Messages Only
 // @namespace    https://github.com/ElSigmaTom/focus-userscripts
-// @version      2.0.4
+// @version      2.0.5
 // @description  Strip FB to /messages only. Hide nav/badges/feed/reels/marketplace. Redirect home to messages. Force-close reels on scroll. Auto-mark-read.
 // @author       ElSigmaTom
 // @match        https://facebook.com/*
@@ -21,7 +21,7 @@
 
   const TAG = '[FB-FOCUS]';
   const log = (...args) => console.log(TAG, ...args);
-  log('v2.0.4 loaded at', location.href);
+  log('v2.0.5 loaded at', location.href);
   console.warn('[FB-FOCUS] USERSCRIPT IS RUNNING:', {
     href: location.href,
     readyState: document.readyState,
@@ -292,19 +292,38 @@
     log('Attempting notification mark-read');
     const bell = document.querySelector('[aria-label="Notifications"]');
     if (!bell) { log('No notification bell found'); return; }
-    (bell.closest('[role="button"]') || bell).click();
-    await sleep(1500);
-    const items = document.querySelectorAll('[role="menuitem"], [role="button"], [role="link"]');
+    const btn = bell.closest('[role="button"]') || bell;
+    // Bell is hidden by our CSS — temporarily show it off-screen so click works
+    const hiddenAncestors = [];
+    let el = btn;
+    while (el && el !== document.body) {
+      if (el.classList.contains('__ff_hide')) {
+        el.classList.remove('__ff_hide');
+        hiddenAncestors.push(el);
+      }
+      el = el.parentElement;
+    }
+    btn.style.cssText = 'position:fixed!important;left:-9999px!important;top:0!important;opacity:0.01!important;pointer-events:auto!important;display:flex!important;';
+    btn.click();
+    log('Bell clicked (off-screen)');
+    await sleep(2000);
+    const items = document.querySelectorAll('[role="menuitem"], [role="button"], [role="link"], [role="menu"] span, [aria-label*="Notifications"] span');
+    let found = false;
     for (const b of items) {
       const t = (b.textContent || '').trim().toLowerCase();
-      if (t === 'mark all as read' || t.startsWith('mark all as read')) {
-        b.click();
+      if (t === 'mark all as read' || t === 'mark all notifications as read') {
+        (b.closest('[role="menuitem"]') || b.closest('[role="button"]') || b).click();
         log('Clicked Mark all as read');
+        found = true;
         break;
       }
     }
+    if (!found) log('Mark all as read button not found');
     await sleep(400);
     document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    // Restore hidden state
+    btn.style.cssText = '';
+    for (const a of hiddenAncestors) a.classList.add('__ff_hide');
   }
 
   function loadSeen() { try { return JSON.parse(localStorage.getItem(SEEN_KEY) || '{}'); } catch { return {}; } }
