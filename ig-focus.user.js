@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         IG Focus — DMs Only
 // @namespace    https://github.com/ElSigmaTom/focus-userscripts
-// @version      2.0.2
+// @version      2.0.4
 // @description  Strip IG to /direct/inbox/ only. Hide nav/badges/feed/reels/explore/stories. Force-close reels on scroll. Auto-mark-read.
 // @author       ElSigmaTom
 // @match        https://instagram.com/*
@@ -18,7 +18,7 @@
 
   const TAG = '[IG-FOCUS]';
   const log = (...args) => console.log(TAG, ...args);
-  log('v2.0.2 loaded at', location.href);
+  log('v2.0.4 loaded at', location.href);
   console.warn('[IG-FOCUS] USERSCRIPT IS RUNNING:', {
     href: location.href,
     readyState: document.readyState,
@@ -140,12 +140,17 @@
   ];
 
   function hideContainer(el, label) {
-    // Try multiple climb strategies (highda's pattern)
-    let container =
-      el.closest('span[class*="html-span"]') ||
-      el.closest('div[role="link"]') ||
-      el.closest('div.x1n2onr6') ||
-      el.parentElement?.parentElement?.parentElement?.parentElement;
+    // Only climb to the nearest link/button wrapper — never higher.
+    // Climbing too far swallows the thread list panel.
+    let container;
+    if (el.tagName === 'A') {
+      container = el;
+    } else {
+      container = el.closest('a') || el.closest('[role="button"]') || el.closest('[role="link"]');
+      if (!container) container = el.parentElement;
+    }
+    // Safety: skip if this container holds thread links (thread list panel)
+    if (container && container.querySelector('a[href^="/direct/t/"]')) return false;
     if (container && !container.classList.contains('__if_hide')) {
       container.classList.add('__if_hide');
       log('Hidden sidebar item:', label);
@@ -204,15 +209,22 @@
 
   function processThreadRow(row) {
     const unread = isRowUnread(row);
-    const spans = row.querySelectorAll('span');
-    let nameSeen = false;
-    for (const sp of spans) {
-      const txt = (sp.textContent || '').trim();
+    const all = Array.from(row.querySelectorAll('[dir="auto"]'));
+    const topLevel = all.filter(el => {
+      let p = el.parentElement;
+      while (p && p !== row) {
+        if (p.getAttribute && p.getAttribute('dir') === 'auto') return false;
+        p = p.parentElement;
+      }
+      return true;
+    });
+    let nameFound = false;
+    for (const el of topLevel) {
+      const txt = (el.textContent || '').trim();
       if (!txt) continue;
-      if (!nameSeen) { nameSeen = true; continue; }
-      if (txt.length <= 8) continue;
-      if (unread) sp.classList.remove('__if_hide_preview');
-      else sp.classList.add('__if_hide_preview');
+      if (!nameFound) { nameFound = true; continue; }
+      if (unread) el.classList.remove('__if_hide_preview');
+      else el.classList.add('__if_hide_preview');
     }
   }
 
