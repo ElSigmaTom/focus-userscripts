@@ -8,8 +8,8 @@ Built on top of proven cleaner scripts:
 
 ## Install
 
-1. Install [Tampermonkey](https://www.tampermonkey.net/).
-2. Click these raw URLs — Tampermonkey will prompt to install:
+1. Install [Violentmonkey](https://violentmonkey.github.io/) (recommended) or [Tampermonkey](https://www.tampermonkey.net/). **Brave users**: Tampermonkey doesn't inject on Facebook — use Violentmonkey.
+2. Click these raw URLs — your extension will prompt to install:
    - **FB**: https://raw.githubusercontent.com/ElSigmaTom/focus-userscripts/main/fb-focus.user.js
    - **IG**: https://raw.githubusercontent.com/ElSigmaTom/focus-userscripts/main/ig-focus.user.js
 3. Reload `facebook.com` and `instagram.com`.
@@ -22,6 +22,20 @@ Both scripts now show a **floating green "FB Focus v2 ✓" / "IG Focus v2 ✓" b
 2. The script's match pattern includes the URL you're on
 3. Open DevTools (F12) → Console tab — search for `[FB-FOCUS]` or `[IG-FOCUS]` — you should see a "v2.0.0 loaded" log line plus periodic activity
 
+## Before & After
+
+### Facebook
+
+| Before | After |
+|--------|-------|
+| ![FB Before](images/fb-before.png) | ![FB After](images/fb-after.png) |
+
+### Instagram
+
+| Before | After |
+|--------|-------|
+| ![IG Before](images/ig-before.png) | ![IG After](images/ig-after.png) |
+
 ## What each does
 
 ### FB
@@ -33,11 +47,9 @@ Both scripts now show a **floating green "FB Focus v2 ✓" / "IG Focus v2 ✓" b
 - Hides right-rail Sponsored / Marketplace / Reels / "People you may know" panels.
 - Reels viewer: any wheel/swipe/PageDown/Space/Arrow → closes the reel.
 - Thread previews:
-  - Read threads → only avatar/name/timestamp visible.
-  - Unread threads → full preview text + bold name.
-- Auto-mark-read (only when tab hidden, so it doesn't disrupt active use):
-  - Notifications: every 5 min, programmatically clicks bell + "Mark all as read".
-  - Messages: 30 min after a thread becomes unread, opens it (sends read receipt — accepted tradeoff).
+  - Read threads → only avatar + name visible (preview text, emoji, timestamps all hidden).
+  - Unread threads → full preview text + bold name (default FB look).
+- Auto-mark-read: disabled by default. Set `ENABLE_AUTO_MARK_READ = true` in the script to enable.
 
 ### IG
 - Redirects `/`, `/explore/`, `/reels/`, `/stories/` → `/direct/inbox/`.
@@ -45,8 +57,9 @@ Both scripts now show a **floating green "FB Focus v2 ✓" / "IG Focus v2 ✓" b
 - Hides Home / Search / Explore / Reels / Notifications / New post / Threads / AI Studio nav items.
 - Hides Stories tray + Notes tray inside DM inbox.
 - Reels viewer: same scroll-close behavior as FB.
-- Thread previews: same conditional behavior as FB.
-- Auto-mark-read DMs via direct API call to `/api/v1/direct_v2/threads/<id>/items/<id>/seen/` with 30-min delay. Falls back to clicking notif heart icon.
+- Sidebar stays collapsed (icons only, no text labels on hover).
+- Thread previews: same as FB — read threads show avatar + name only, unread show full preview.
+- Auto-mark-read: disabled by default. Set `ENABLE_AUTO_MARK_READ = true` to enable.
 
 ## Caveats
 
