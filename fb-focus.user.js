@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         FB Focus — Messages Only
 // @namespace    https://github.com/ElSigmaTom/focus-userscripts
-// @version      2.0.5
+// @version      2.0.6
 // @description  Strip FB to /messages only. Hide nav/badges/feed/reels/marketplace. Redirect home to messages. Force-close reels on scroll. Auto-mark-read.
 // @author       ElSigmaTom
 // @match        https://facebook.com/*
@@ -21,7 +21,7 @@
 
   const TAG = '[FB-FOCUS]';
   const log = (...args) => console.log(TAG, ...args);
-  log('v2.0.5 loaded at', location.href);
+  log('v2.0.6 loaded at', location.href);
   console.warn('[FB-FOCUS] USERSCRIPT IS RUNNING:', {
     href: location.href,
     readyState: document.readyState,
@@ -285,15 +285,47 @@
   const SEEN_KEY = '__ff_seen';
   const sleep = ms => new Promise(r => setTimeout(r, ms));
 
+  function getDtsg() {
+    // fb_dtsg token — needed for all FB API calls
+    const el = document.querySelector('input[name="fb_dtsg"]');
+    if (el) return el.value;
+    const m = document.documentElement.innerHTML.match(/"DTSGInitialData"[^}]*"token"\s*:\s*"([^"]+)"/);
+    if (m) return m[1];
+    const m2 = document.documentElement.innerHTML.match(/\["DTSGInitData",\[\],\{"token":"([^"]+)"/);
+    if (m2) return m2[1];
+    return null;
+  }
+
   async function markNotificationsRead() {
     if (!TEST_MODE && !document.hidden) return;
     if (Date.now() - lastNotif < NOTIF_INTERVAL) return;
     lastNotif = Date.now();
     log('Attempting notification mark-read');
-    const bell = document.querySelector('[aria-label="Notifications"]');
-    if (!bell) { log('No notification bell found'); return; }
+
+    // Strategy 1: GraphQL API (works on any FB page including E2EE)
+    const dtsg = getDtsg();
+    if (dtsg) {
+      try {
+        const body = new URLSearchParams({
+          fb_dtsg: dtsg,
+          __a: '1'
+        });
+        const res = await fetch('/notifications/mark_read/', {
+          method: 'POST', credentials: 'include',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: body.toString()
+        });
+        log('API mark-read status:', res.status);
+        if (res.ok) return;
+      } catch (e) { log('API mark-read failed:', e); }
+    } else {
+      log('No fb_dtsg token found');
+    }
+
+    // Strategy 2: Click the bell (fallback, only works if bell exists)
+    const bell = document.querySelector('[aria-label*="Notification" i]');
+    if (!bell) { log('No notification bell found either'); return; }
     const btn = bell.closest('[role="button"]') || bell;
-    // Bell is hidden by our CSS — temporarily show it off-screen so click works
     const hiddenAncestors = [];
     let el = btn;
     while (el && el !== document.body) {
@@ -307,7 +339,7 @@
     btn.click();
     log('Bell clicked (off-screen)');
     await sleep(2000);
-    const items = document.querySelectorAll('[role="menuitem"], [role="button"], [role="link"], [role="menu"] span, [aria-label*="Notifications"] span');
+    const items = document.querySelectorAll('[role="menuitem"], [role="button"], [role="link"], span');
     let found = false;
     for (const b of items) {
       const t = (b.textContent || '').trim().toLowerCase();
@@ -321,7 +353,6 @@
     if (!found) log('Mark all as read button not found');
     await sleep(400);
     document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-    // Restore hidden state
     btn.style.cssText = '';
     for (const a of hiddenAncestors) a.classList.add('__ff_hide');
   }
