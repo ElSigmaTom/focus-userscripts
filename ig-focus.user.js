@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         IG Focus — DMs Only
 // @namespace    https://github.com/ElSigmaTom/focus-userscripts
-// @version      2.0.5
+// @version      2.0.6
 // @description  Strip IG to /direct/inbox/ only. Hide nav/badges/feed/reels/explore/stories. Force-close reels on scroll. Auto-mark-read.
 // @author       ElSigmaTom
 // @match        https://instagram.com/*
@@ -18,7 +18,7 @@
 
   const TAG = '[IG-FOCUS]';
   const log = (...args) => console.log(TAG, ...args);
-  log('v2.0.5 loaded at', location.href);
+  log('v2.0.6 loaded at', location.href);
   console.warn('[IG-FOCUS] USERSCRIPT IS RUNNING:', {
     href: location.href,
     readyState: document.readyState,
@@ -90,11 +90,9 @@
     [aria-label*="new notification" i],
     [aria-label*="new activity" i] { display: none !important; }
 
-    /* Force sidebar to stay collapsed (icons only, no text labels).
-       IG expands on hover via width transition — block it. */
-    nav[role="navigation"],
-    nav[role="navigation"] > div {
-      width: 72px !important; min-width: 72px !important; max-width: 72px !important;
+    /* Force sidebar collapsed — tagged by JS with .__if_sidebar */
+    .__if_sidebar, .__if_sidebar > div {
+      width: 73px !important; min-width: 73px !important; max-width: 73px !important;
       overflow: hidden !important; transition: none !important;
     }
 
@@ -201,6 +199,32 @@
       }
     }
     if (count) log('Hid', count, 'items this scan');
+  }
+
+  function lockSidebar() {
+    if (document.querySelector('.__if_sidebar')) return;
+    // Find the Direct/Messages icon SVG, then climb to the sidebar wrapper
+    const directSvg = document.querySelector('svg[aria-label="Direct"]') ||
+                      document.querySelector('svg[aria-label="Messenger"]') ||
+                      document.querySelector('a[href*="/direct/"] svg');
+    if (!directSvg) return;
+    // Climb from the SVG up through ancestors. The sidebar wrapper is typically
+    // a fixed/sticky div that's a direct child of body or a top-level layout div.
+    // We find it by looking for the ancestor whose width changes on hover.
+    let el = directSvg;
+    let sidebar = null;
+    while (el && el !== document.body) {
+      const w = el.getBoundingClientRect().width;
+      // The sidebar collapsed is ~72px, expanded ~244px. Tag anything in that range.
+      if (w > 60 && w < 340 && el.tagName === 'DIV') {
+        sidebar = el;
+      }
+      el = el.parentElement;
+    }
+    if (sidebar) {
+      sidebar.classList.add('__if_sidebar');
+      log('Sidebar locked at', sidebar.getBoundingClientRect().width, 'px');
+    }
   }
 
   // =========================================================
@@ -406,6 +430,7 @@
   // =========================================================
   function tick() {
     showIndicator();
+    lockSidebar();
     hideSidebarItems();
     scanThreadList();
     checkReel();
