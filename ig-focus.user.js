@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         IG Focus — DMs Only
 // @namespace    https://github.com/ElSigmaTom/focus-userscripts
-// @version      2.0.0
+// @version      2.0.1
 // @description  Strip IG to /direct/inbox/ only. Hide nav/badges/feed/reels/explore/stories. Force-close reels on scroll. Auto-mark-read.
 // @author       ElSigmaTom
 // @match        https://*.instagram.com/*
@@ -16,7 +16,7 @@
 
   const TAG = '[IG-FOCUS]';
   const log = (...args) => console.log(TAG, ...args);
-  log('v2.0.0 loaded at', location.href);
+  log('v2.0.1 loaded at', location.href);
 
   // =========================================================
   // 1. HARD REDIRECT (document-start)
@@ -88,15 +88,24 @@
   `;
 
   function injectStyles() {
-    if (document.getElementById('__if_style')) return;
+    if (typeof document === 'undefined') return;
+    if (document.getElementById && document.getElementById('__if_style')) return;
+    const target = document.head || document.documentElement;
+    if (!target) {
+      setTimeout(injectStyles, 5);
+      return;
+    }
     const s = document.createElement('style');
     s.id = '__if_style';
     s.textContent = CSS;
-    (document.head || document.documentElement).appendChild(s);
+    target.appendChild(s);
     log('CSS injected');
+    if (!window.__if_obs && document.documentElement) {
+      window.__if_obs = new MutationObserver(injectStyles);
+      window.__if_obs.observe(document.documentElement, { childList: true });
+    }
   }
   injectStyles();
-  new MutationObserver(injectStyles).observe(document.documentElement, { childList: true });
 
   // =========================================================
   // 3. SIDEBAR HIDING — highda's proven approach

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         FB Focus — Messages Only
 // @namespace    https://github.com/ElSigmaTom/focus-userscripts
-// @version      2.0.0
+// @version      2.0.1
 // @description  Strip FB to /messages only. Hide nav/badges/feed/reels/marketplace. Redirect home to messages. Force-close reels on scroll. Auto-mark-read.
 // @author       ElSigmaTom
 // @match        https://*.facebook.com/*
@@ -17,7 +17,7 @@
 
   const TAG = '[FB-FOCUS]';
   const log = (...args) => console.log(TAG, ...args);
-  log('v2.0.0 loaded at', location.href);
+  log('v2.0.1 loaded at', location.href);
 
   // =========================================================
   // 1. HARD REDIRECT (runs at document-start, before paint)
@@ -85,16 +85,26 @@
   `;
 
   function injectStyles() {
-    if (document.getElementById('__ff_style')) return;
+    if (typeof document === 'undefined') return;
+    if (document.getElementById && document.getElementById('__ff_style')) return;
+    const target = document.head || document.documentElement;
+    if (!target) {
+      // documentElement not ready yet (true at @run-at document-start) — retry
+      setTimeout(injectStyles, 5);
+      return;
+    }
     const s = document.createElement('style');
     s.id = '__ff_style';
     s.textContent = CSS;
-    (document.head || document.documentElement).appendChild(s);
+    target.appendChild(s);
     log('CSS injected');
+    // Re-inject if FB removes it during hydration (only attach observer after documentElement exists)
+    if (!window.__ff_obs && document.documentElement) {
+      window.__ff_obs = new MutationObserver(injectStyles);
+      window.__ff_obs.observe(document.documentElement, { childList: true });
+    }
   }
   injectStyles();
-  // Re-inject if FB removes it during hydration
-  new MutationObserver(injectStyles).observe(document.documentElement, { childList: true });
 
   // =========================================================
   // 3. TEXT-CONTENT-BASED NAV HIDING
