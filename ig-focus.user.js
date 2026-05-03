@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         IG Focus — DMs Only
 // @namespace    https://github.com/ElSigmaTom/focus-userscripts
-// @version      2.0.4
+// @version      2.0.5
 // @description  Strip IG to /direct/inbox/ only. Hide nav/badges/feed/reels/explore/stories. Force-close reels on scroll. Auto-mark-read.
 // @author       ElSigmaTom
 // @match        https://instagram.com/*
@@ -18,7 +18,7 @@
 
   const TAG = '[IG-FOCUS]';
   const log = (...args) => console.log(TAG, ...args);
-  log('v2.0.4 loaded at', location.href);
+  log('v2.0.5 loaded at', location.href);
   console.warn('[IG-FOCUS] USERSCRIPT IS RUNNING:', {
     href: location.href,
     readyState: document.readyState,
@@ -89,6 +89,17 @@
     [aria-label*="unseen" i],
     [aria-label*="new notification" i],
     [aria-label*="new activity" i] { display: none !important; }
+
+    /* Force sidebar to stay collapsed (icons only, no text labels).
+       IG expands on hover via width transition — block it. */
+    nav[role="navigation"],
+    nav[role="navigation"] > div {
+      width: 72px !important; min-width: 72px !important; max-width: 72px !important;
+      overflow: hidden !important; transition: none !important;
+    }
+
+    /* Hide "Also from Meta" / Threads cross-promo */
+    a[href*="threads.net"], a[href*="meta.com"] { display: none !important; }
 
     /* Floating debug indicator */
     #__if_indicator {
