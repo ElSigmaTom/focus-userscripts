@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         IG Focus — DMs Only
 // @namespace    https://github.com/ElSigmaTom/focus-userscripts
-// @version      2.0.7
+// @version      2.0.8
 // @description  Strip IG to /direct/inbox/ only. Hide nav/badges/feed/reels/explore/stories. Force-close reels on scroll. Auto-mark-read.
 // @author       ElSigmaTom
 // @match        https://instagram.com/*
@@ -18,7 +18,7 @@
 
   const TAG = '[IG-FOCUS]';
   const log = (...args) => console.log(TAG, ...args);
-  log('v2.0.7 loaded at', location.href);
+  log('v2.0.8 loaded at', location.href);
   console.warn('[IG-FOCUS] USERSCRIPT IS RUNNING:', {
     href: location.href,
     readyState: document.readyState,
@@ -98,6 +98,10 @@
 
     /* Hide "Also from Meta" / Threads cross-promo */
     a[href*="threads.net"], a[href*="meta.com"] { display: none !important; }
+
+    /* Hide search bar + notes tray in DM inbox */
+    input[placeholder="Search" i] { display: none !important; }
+    [aria-label*="Search" i][role="search"] { display: none !important; }
 
     /* Floating debug indicator */
     #__if_indicator {
@@ -264,14 +268,33 @@
   }
 
   function scanThreadList() {
-    const rows = document.querySelectorAll(
-      'a[href^="/direct/t/"], div[role="listitem"], [role="list"] > div, [role="grid"] [role="row"]'
-    );
-    if (rows.length && !window.__if_threadLog) {
-      window.__if_threadLog = true;
-      log('Found', rows.length, 'thread rows');
+    // IG thread rows don't have stable ARIA roles. Find them by structure:
+    // each thread has a circular avatar img. Find those, climb to the row container.
+    const seen = new Set();
+    const imgs = document.querySelectorAll('img[draggable="false"][alt]');
+    for (const img of imgs) {
+      const rect = img.getBoundingClientRect();
+      if (rect.width < 30 || rect.width > 80) continue;
+      // Climb to the clickable row container
+      let row = img.closest('a[href*="/direct/"]') ||
+                img.closest('div[role="button"]') ||
+                img.closest('[tabindex]');
+      if (!row) {
+        // Fallback: walk up ~4 levels from the avatar
+        row = img.parentElement;
+        for (let i = 0; i < 4 && row && row.parentElement; i++) {
+          if (row.querySelectorAll('[dir="auto"]').length >= 2) break;
+          row = row.parentElement;
+        }
+      }
+      if (!row || seen.has(row)) continue;
+      seen.add(row);
+      processThreadRow(row);
     }
-    rows.forEach(processThreadRow);
+    if (seen.size && !window.__if_threadLog) {
+      window.__if_threadLog = true;
+      log('Found', seen.size, 'thread rows via avatar scan');
+    }
   }
 
   // =========================================================
