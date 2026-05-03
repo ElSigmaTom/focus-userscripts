@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         FB Focus — Messages Only
 // @namespace    https://github.com/ElSigmaTom/focus-userscripts
-// @version      2.0.3
+// @version      2.0.4
 // @description  Strip FB to /messages only. Hide nav/badges/feed/reels/marketplace. Redirect home to messages. Force-close reels on scroll. Auto-mark-read.
 // @author       ElSigmaTom
 // @match        https://facebook.com/*
@@ -21,7 +21,7 @@
 
   const TAG = '[FB-FOCUS]';
   const log = (...args) => console.log(TAG, ...args);
-  log('v2.0.3 loaded at', location.href);
+  log('v2.0.4 loaded at', location.href);
   console.warn('[FB-FOCUS] USERSCRIPT IS RUNNING:', {
     href: location.href,
     readyState: document.readyState,
@@ -191,18 +191,23 @@
 
   function processThreadRow(row) {
     const unread = isRowUnread(row);
-    // Strategy: the name lives inside a link (<a> or role="link"). Everything
-    // else that contains visible text (preview, timestamp, "·", "Active now")
-    // gets hidden on read threads. We never touch the avatar or the name link.
-    const spans = row.querySelectorAll('span[dir="auto"], span');
-    for (const el of spans) {
+    // [dir="auto"] is FB's attribute for user-facing text spans.
+    // Filter to top-level only (not nested inside another [dir="auto"]).
+    // First top-level = name. Everything after = preview / timestamp / metadata.
+    const all = Array.from(row.querySelectorAll('[dir="auto"]'));
+    const topLevel = all.filter(el => {
+      let p = el.parentElement;
+      while (p && p !== row) {
+        if (p.getAttribute && p.getAttribute('dir') === 'auto') return false;
+        p = p.parentElement;
+      }
+      return true;
+    });
+    let nameFound = false;
+    for (const el of topLevel) {
       const txt = (el.textContent || '').trim();
       if (!txt) continue;
-      // Skip if this span is inside a link (it's the name)
-      if (el.closest('a, [role="link"]')) continue;
-      // Skip the avatar area (img or svg containers)
-      if (el.closest('[role="img"], svg, image')) continue;
-      // This is preview text, timestamp, or metadata — toggle visibility
+      if (!nameFound) { nameFound = true; continue; }
       if (unread) el.classList.remove('__ff_hide_preview');
       else el.classList.add('__ff_hide_preview');
     }
