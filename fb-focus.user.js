@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         FB Focus — Messages Only
 // @namespace    https://github.com/ElSigmaTom/focus-userscripts
-// @version      1.0.0
-// @description  Hide FB feed/reels/marketplace, redirect to /messages, kill reel rabbit holes, auto-clear notification badges
+// @version      2.0.0
+// @description  Strip FB to /messages only. Hide nav/badges/feed/reels/marketplace. Redirect home to messages. Force-close reels on scroll. Auto-mark-read.
 // @author       ElSigmaTom
 // @match        https://*.facebook.com/*
 // @match        https://*.messenger.com/*
@@ -15,192 +15,268 @@
 (function () {
   'use strict';
 
-  // ---------- 1. Hard redirect ----------
-  // Land everything except /messages and active conversation URLs straight on /messages.
-  const ALLOW_PATH = /^\/(messages|messenger|t|login|logout|help|settings|profile|me|friends\/requests|notifications|policies|privacy|business)/;
+  const TAG = '[FB-FOCUS]';
+  const log = (...args) => console.log(TAG, ...args);
+  log('v2.0.0 loaded at', location.href);
+
+  // =========================================================
+  // 1. HARD REDIRECT (runs at document-start, before paint)
+  // =========================================================
+  const PATH = location.pathname;
   const ON_FB = location.hostname.endsWith('facebook.com');
-  const ON_MSGR = location.hostname.endsWith('messenger.com');
-  if (ON_FB && !ALLOW_PATH.test(location.pathname) && location.pathname !== '/messages') {
-    // Allow profile pages (/<username>) only if reached via DM click; everything else redirects.
-    // Heuristic: redirect if pathname is empty OR matches a known feed/reels/marketplace path.
-    if (location.pathname === '/' ||
-        /^\/(home|watch|reels?|marketplace|gaming|memories|saved|groups\/feed|feed|stories|videos)\/?/.test(location.pathname)) {
+
+  // Allow these paths to render normally
+  const ALLOW = /^\/(messages|messenger|t|login|logout|recover|checkpoint|help|policies|privacy|business|settings|me|profile\.php|friends\/requests|notifications)/;
+
+  // Force-redirect these paths to /messages
+  const REDIRECT = /^\/(home|watch|reels?|marketplace|gaming|memories|saved|groups\/feed|feed|stories|videos|live|events|fundraisers|crisisresponse|gameroom|hashtag|trending)\/?/;
+
+  if (ON_FB) {
+    if (PATH === '/' || REDIRECT.test(PATH) || (!ALLOW.test(PATH) && PATH.length <= 2)) {
+      log('Redirecting from', PATH, '→ /messages');
       location.replace('https://www.facebook.com/messages');
       return;
     }
   }
 
-  // ---------- 2. CSS hides ----------
-  const HIDE_LABELS = [
-    'Home', 'Reels', 'Marketplace', 'Watch', 'Video', 'Groups', 'Gaming',
-    'Memories', 'Saved', 'Feeds', 'Notifications', 'Friend requests', 'Friends',
-    'Pages', 'Events', 'Most recent', 'Live videos', 'Ad Center', 'Ads Manager',
-    'Climate science center', 'Crisis response', 'Fundraisers', 'Recent ad activity'
-  ];
+  // =========================================================
+  // 2. CSS HIDES — runs at document-start, applies before paint
+  // =========================================================
+  const CSS = `
+    /* Hide-by-attribute classes (toggled in JS) */
+    .__ff_hide { display: none !important; }
+    .__ff_hide_preview { display: none !important; }
 
-  const css = `
-    /* === Nav rail + top bar items by aria-label === */
-    ${HIDE_LABELS.map(l => `[aria-label="${l}"]`).join(',\n    ')} { display: none !important; }
+    /* Direct attribute selectors for nav items */
+    [aria-label="Marketplace"][role="link"],
+    [aria-label="Watch"][role="link"],
+    [aria-label="Reels"][role="link"],
+    [aria-label="Home"][role="link"],
+    [aria-label="Groups"][role="link"],
+    [aria-label="Gaming"][role="link"],
+    [aria-label="Video"][role="link"],
+    [aria-label="Memories"][role="link"],
+    [aria-label="Saved"][role="link"],
+    [aria-label="Friends"][role="link"],
+    [aria-label="Friend requests"],
+    [aria-label="Notifications"],
+    [aria-label="Stories"][role="link"] { display: none !important; }
 
-    /* Top bar shortcuts row (Home/Watch/Marketplace/Groups icons) */
+    /* Top-bar shortcut tab list */
     [role="navigation"] [role="tablist"] { display: none !important; }
 
-    /* Red unread / new-notification badges */
+    /* Red unread dot badges */
     [aria-label*="unread" i],
-    [aria-label*="new notification" i],
-    [aria-label*="unseen" i] { display: none !important; }
+    [aria-label*="unseen" i],
+    [aria-label*="new notification" i] { display: none !important; }
 
-    /* Right-rail sponsored / suggestion blocks on /messages */
-    [role="complementary"] [aria-label="Sponsored"],
-    [role="complementary"] [aria-label*="People you may know" i],
+    /* Right rail sponsored / suggestions on /messages */
+    [role="complementary"] [aria-label*="Sponsored" i],
     [role="complementary"] [aria-label*="Marketplace" i],
     [role="complementary"] [aria-label*="Reels" i],
-    [role="complementary"] [aria-label*="Suggested" i] { display: none !important; }
+    [role="complementary"] [aria-label*="People you may know" i] { display: none !important; }
 
-    /* Story tray on /messages */
-    [aria-label="Stories"] { display: none !important; }
-
-    /* JS-toggled hide classes */
-    .__focus_hide { display: none !important; }
-    .__focus_hide_preview { display: none !important; }
+    /* Floating debug indicator */
+    #__ff_indicator {
+      position: fixed; bottom: 12px; right: 12px; z-index: 99999;
+      background: rgba(20,20,20,0.85); color: #6f6; font: 11px/1.2 monospace;
+      padding: 4px 8px; border-radius: 4px; pointer-events: none;
+    }
   `;
 
   function injectStyles() {
-    if (document.getElementById('__focus_style')) return;
-    const styleEl = document.createElement('style');
-    styleEl.id = '__focus_style';
-    styleEl.textContent = css;
-    (document.head || document.documentElement).appendChild(styleEl);
+    if (document.getElementById('__ff_style')) return;
+    const s = document.createElement('style');
+    s.id = '__ff_style';
+    s.textContent = CSS;
+    (document.head || document.documentElement).appendChild(s);
+    log('CSS injected');
   }
   injectStyles();
-  // Re-inject if FB nukes it during hydration
-  new MutationObserver(injectStyles).observe(document.documentElement, { childList: true, subtree: false });
+  // Re-inject if FB removes it during hydration
+  new MutationObserver(injectStyles).observe(document.documentElement, { childList: true });
 
-  // ---------- 3. Thread-list preview behavior ----------
-  // For each thread row in the conversation list:
-  //   - Read   → hide the last-message preview line
-  //   - Unread → leave it visible (name is bold by default)
-  function processThreadRow(row) {
-    if (!row || !row.querySelector) return;
-    // Detect unread: any descendant span with computed font-weight >= 600,
-    // OR explicit aria-label "unread"
-    let isUnread = false;
-    if (row.querySelector('[aria-label*="unread" i]')) {
-      isUnread = true;
-    } else {
-      const spans = row.querySelectorAll('span');
-      for (let i = 0; i < spans.length && i < 30; i++) {
-        const fw = parseInt(getComputedStyle(spans[i]).fontWeight || '400', 10);
-        if (fw >= 600) { isUnread = true; break; }
-      }
+  // =========================================================
+  // 3. TEXT-CONTENT-BASED NAV HIDING
+  // (proven approach from Freyam Mehta's "Hide Facebook Reels Completely")
+  // =========================================================
+  // Phrases that identify nav items / sections to hide.
+  // We find any <span> containing the text, then climb up to a stable parent (link or list item)
+  const HIDE_NAV_TEXTS = [
+    'Reels and short videos',
+    'Marketplace',
+    'Watch',
+    'Reels',
+    'Groups',
+    'Gaming',
+    'Friends',
+    'Memories',
+    'Saved',
+    'Events',
+    'Live videos',
+    'Most recent',
+    'Pages',
+    'Notifications',
+    'Friend requests',
+    'Stories'
+  ];
+
+  function hideClimbing(el) {
+    // Climb to nearest [role="link"] or [role="listitem"] or div with link inside
+    let target = el.closest('[role="link"]') ||
+                 el.closest('[role="listitem"]') ||
+                 el.closest('a[role="presentation"]') ||
+                 el.closest('div[class*="x1qughib"]') ||
+                 el.closest('div[class*="x1lliihq"]') ||
+                 el.parentElement?.parentElement?.parentElement?.parentElement;
+    if (target && !target.classList.contains('__ff_hide')) {
+      target.classList.add('__ff_hide');
+      return true;
     }
-    // Find preview text nodes. FB uses [dir="auto"] for message content.
-    // Index 0 = name. Index 1+ = preview line(s) and timestamp.
-    // We hide preview lines but NOT the timestamp. Timestamps are short (e.g. "2h", "Mon").
-    // Strategy: hide [dir="auto"] elements whose text is longer than 12 chars (heuristic for prose vs timestamp).
-    const dirAuto = row.querySelectorAll('[dir="auto"]');
-    for (let i = 1; i < dirAuto.length; i++) {
-      const el = dirAuto[i];
+    return false;
+  }
+
+  function hideNavByText() {
+    let hidden = 0;
+    const spans = document.querySelectorAll('span:not(.__ff_seen)');
+    for (const span of spans) {
+      const txt = (span.textContent || '').trim();
+      if (txt.length === 0 || txt.length > 50) continue;
+      if (HIDE_NAV_TEXTS.includes(txt)) {
+        if (hideClimbing(span)) hidden++;
+      }
+      span.classList.add('__ff_seen'); // skip on next pass
+    }
+    if (hidden) log('Hid', hidden, 'nav items by text');
+  }
+
+  // =========================================================
+  // 4. THREAD-LIST CONDITIONAL PREVIEW
+  // Read threads → hide preview text. Unread → leave it.
+  // =========================================================
+  function isRowUnread(row) {
+    if (row.querySelector('[aria-label*="unread" i]')) return true;
+    const spans = row.querySelectorAll('span');
+    let n = 0;
+    for (const s of spans) {
+      if (++n > 30) break;
+      const fw = parseInt(getComputedStyle(s).fontWeight || '400', 10);
+      if (fw >= 600) return true;
+    }
+    return false;
+  }
+
+  function processThreadRow(row) {
+    const unread = isRowUnread(row);
+    // Find prose-length text nodes (preview lines, not name/timestamp)
+    const candidates = row.querySelectorAll('[dir="auto"], span');
+    let nameSeen = false;
+    for (const el of candidates) {
       const txt = (el.textContent || '').trim();
-      // Skip very short text (timestamps, online indicators)
-      if (txt.length <= 8) continue;
-      // Skip if it's the name row (already handled by index 0)
-      if (isUnread) el.classList.remove('__focus_hide_preview');
-      else el.classList.add('__focus_hide_preview');
+      if (!txt) continue;
+      if (!nameSeen) { nameSeen = true; continue; } // skip name (first non-empty)
+      if (txt.length <= 8) continue; // skip timestamp / online dots
+      if (unread) el.classList.remove('__ff_hide_preview');
+      else el.classList.add('__ff_hide_preview');
     }
   }
 
   function scanThreadList() {
-    // FB Messages inbox: role="grid" → role="row" children
-    const rows = document.querySelectorAll('[role="row"]');
+    const rows = document.querySelectorAll('[role="row"], [role="gridcell"][data-testid*="conversation" i]');
     rows.forEach(processThreadRow);
   }
 
-  // ---------- 4. Reel scroll-close ----------
-  let reelHandlersAttached = false;
+  // =========================================================
+  // 5. REEL VIEWER — FORCE CLOSE ON SCROLL
+  // =========================================================
+  let reelAttached = false;
+
   function isOnReel() {
     if (/^\/reels?\//.test(location.pathname)) return true;
     if (document.querySelector('[role="dialog"][aria-label*="reel" i]')) return true;
     if (document.querySelector('[data-pagelet*="Reel" i]')) return true;
     return false;
   }
+
   function closeReel() {
+    log('Closing reel');
     const closeBtn = document.querySelector(
-      '[role="dialog"][aria-label*="reel" i] [aria-label="Close"], ' +
-      '[role="dialog"] [aria-label="Close"]'
+      '[role="dialog"] [aria-label="Close"], ' +
+      '[role="dialog"] [aria-label*="close" i]'
     );
     if (closeBtn) { closeBtn.click(); return; }
     if (history.length > 1) history.back();
     else location.replace('https://www.facebook.com/messages');
   }
-  function onReelScroll(e) {
+
+  function onReelEvent(e) {
     e.preventDefault();
     e.stopImmediatePropagation();
     closeReel();
-    detachReelHandlers();
-  }
-  function onReelKey(e) {
-    if (['ArrowDown', 'ArrowUp', 'PageDown', 'PageUp', ' '].includes(e.key)) {
-      onReelScroll(e);
-    }
-  }
-  function attachReelHandlers() {
-    if (reelHandlersAttached) return;
-    reelHandlersAttached = true;
-    window.addEventListener('wheel', onReelScroll, { capture: true, passive: false });
-    window.addEventListener('touchmove', onReelScroll, { capture: true, passive: false });
-    window.addEventListener('keydown', onReelKey, { capture: true });
-  }
-  function detachReelHandlers() {
-    if (!reelHandlersAttached) return;
-    reelHandlersAttached = false;
-    window.removeEventListener('wheel', onReelScroll, { capture: true });
-    window.removeEventListener('touchmove', onReelScroll, { capture: true });
-    window.removeEventListener('keydown', onReelKey, { capture: true });
-  }
-  function checkReel() {
-    if (isOnReel()) attachReelHandlers();
-    else detachReelHandlers();
+    detachReel();
   }
 
-  // ---------- 5. Auto-mark-read (click fallback) ----------
-  // Only runs when tab is hidden (document.hidden === true) so it doesn't disrupt active use.
-  const NOTIF_INTERVAL_MS = 5 * 60 * 1000;
-  let lastNotifRun = 0;
-  function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+  function onReelKey(e) {
+    if (['ArrowDown', 'ArrowUp', 'PageDown', 'PageUp', ' ', 'Spacebar'].includes(e.key)) {
+      onReelEvent(e);
+    }
+  }
+
+  function attachReel() {
+    if (reelAttached) return;
+    reelAttached = true;
+    window.addEventListener('wheel', onReelEvent, { capture: true, passive: false });
+    window.addEventListener('touchmove', onReelEvent, { capture: true, passive: false });
+    window.addEventListener('keydown', onReelKey, { capture: true });
+    log('Reel handlers attached');
+  }
+
+  function detachReel() {
+    if (!reelAttached) return;
+    reelAttached = false;
+    window.removeEventListener('wheel', onReelEvent, { capture: true });
+    window.removeEventListener('touchmove', onReelEvent, { capture: true });
+    window.removeEventListener('keydown', onReelKey, { capture: true });
+  }
+
+  function checkReel() {
+    if (isOnReel()) attachReel();
+    else detachReel();
+  }
+
+  // =========================================================
+  // 6. AUTO-MARK-READ — click fallback (only when tab hidden)
+  // =========================================================
+  const NOTIF_INTERVAL = 5 * 60 * 1000;
+  const MARK_DELAY = 30 * 60 * 1000;
+  let lastNotif = 0;
+  const SEEN_KEY = '__ff_seen';
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
 
   async function markNotificationsRead() {
     if (!document.hidden) return;
-    if (Date.now() - lastNotifRun < NOTIF_INTERVAL_MS) return;
-    lastNotifRun = Date.now();
-
+    if (Date.now() - lastNotif < NOTIF_INTERVAL) return;
+    lastNotif = Date.now();
+    log('Attempting notification mark-read');
     const bell = document.querySelector('[aria-label="Notifications"]');
-    if (!bell) return;
-    const clickable = bell.closest('[role="button"]') || bell;
-    clickable.click();
-    await sleep(1200);
-
-    // Find "Mark all as read" in the opened panel
-    const candidates = document.querySelectorAll('[role="menuitem"], [role="button"], [role="link"]');
-    for (const b of candidates) {
-      const txt = (b.textContent || '').trim().toLowerCase();
-      if (txt === 'mark all as read' || txt.includes('mark all as read')) {
+    if (!bell) { log('No notification bell found'); return; }
+    (bell.closest('[role="button"]') || bell).click();
+    await sleep(1500);
+    const items = document.querySelectorAll('[role="menuitem"], [role="button"], [role="link"]');
+    for (const b of items) {
+      const t = (b.textContent || '').trim().toLowerCase();
+      if (t === 'mark all as read' || t.startsWith('mark all as read')) {
         b.click();
+        log('Clicked Mark all as read');
         break;
       }
     }
     await sleep(400);
-    // Close panel via Escape
     document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
   }
 
-  // Messages: 30-min delay before auto-marking read, only when tab hidden.
-  // Implementation: track first-seen timestamp per unread thread in localStorage.
-  // After 30 min, click the thread (which marks it read + sends read receipt).
-  const SEEN_KEY = '__focus_fb_unread_seen';
-  const MARK_DELAY_MS = 30 * 60 * 1000;
-  const loadSeen = () => { try { return JSON.parse(localStorage.getItem(SEEN_KEY) || '{}'); } catch { return {}; } };
-  const saveSeen = s => localStorage.setItem(SEEN_KEY, JSON.stringify(s));
+  function loadSeen() { try { return JSON.parse(localStorage.getItem(SEEN_KEY) || '{}'); } catch { return {}; } }
+  function saveSeen(s) { localStorage.setItem(SEEN_KEY, JSON.stringify(s)); }
 
   async function markMessagesRead() {
     if (!document.hidden) return;
@@ -208,39 +284,44 @@
     const now = Date.now();
     const rows = document.querySelectorAll('[role="row"]');
     for (const row of rows) {
-      let isUnread = false;
-      if (row.querySelector('[aria-label*="unread" i]')) isUnread = true;
-      else {
-        const spans = row.querySelectorAll('span');
-        for (let i = 0; i < spans.length && i < 30; i++) {
-          const fw = parseInt(getComputedStyle(spans[i]).fontWeight || '400', 10);
-          if (fw >= 600) { isUnread = true; break; }
-        }
-      }
-      if (!isUnread) continue;
-      // Use thread's stable identifier — aria-label or row text first 60 chars
+      if (!isRowUnread(row)) continue;
       const id = row.getAttribute('aria-label') || (row.textContent || '').trim().slice(0, 60);
       if (!id) continue;
-      if (!seen[id]) seen[id] = now;
-      if (now - seen[id] >= MARK_DELAY_MS) {
-        const clickTarget = row.querySelector('[role="link"], [role="button"]') || row;
-        clickTarget.click();
+      if (!seen[id]) { seen[id] = now; continue; }
+      if (now - seen[id] >= MARK_DELAY) {
+        log('Marking thread read after delay:', id.slice(0, 30));
+        const tgt = row.querySelector('[role="link"], [role="button"]') || row;
+        tgt.click();
         delete seen[id];
         await sleep(800);
-        // After clicking, FB navigates to that thread. We're on /messages/t/<id> now.
-        // No need to navigate back — user accepted this. Stop the loop to avoid more clicks this tick.
         break;
       }
     }
-    // Prune entries older than 7 days (stale)
     for (const k of Object.keys(seen)) {
       if (now - seen[k] > 7 * 24 * 60 * 60 * 1000) delete seen[k];
     }
     saveSeen(seen);
   }
 
-  // ---------- 6. Wire it up ----------
+  // =========================================================
+  // 7. DEBUG INDICATOR (so user sees the script is alive)
+  // =========================================================
+  function showIndicator() {
+    if (document.getElementById('__ff_indicator')) return;
+    if (!document.body) return;
+    const i = document.createElement('div');
+    i.id = '__ff_indicator';
+    i.textContent = 'FB Focus v2 ✓';
+    document.body.appendChild(i);
+    log('Indicator shown');
+  }
+
+  // =========================================================
+  // 8. RUN LOOP
+  // =========================================================
   function tick() {
+    showIndicator();
+    hideNavByText();
     scanThreadList();
     checkReel();
     markNotificationsRead();
@@ -248,12 +329,25 @@
   }
 
   function start() {
+    log('start() running');
+    showIndicator();
+    // Aggressive scan on first 10 seconds (FB hydrates async)
+    let count = 0;
+    const fast = setInterval(() => {
+      hideNavByText();
+      scanThreadList();
+      checkReel();
+      if (++count >= 10) clearInterval(fast);
+    }, 1000);
+    // Steady scan
+    setInterval(tick, 60 * 1000);
+    // MutationObserver for SPA navigation re-renders
     const obs = new MutationObserver(() => {
+      hideNavByText();
       scanThreadList();
       checkReel();
     });
     obs.observe(document.body, { childList: true, subtree: true });
-    setInterval(tick, 60 * 1000);
     tick();
   }
 
