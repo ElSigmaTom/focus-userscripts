@@ -1,10 +1,12 @@
 // ==UserScript==
 // @name         IG Focus — DMs Only
 // @namespace    https://github.com/ElSigmaTom/focus-userscripts
-// @version      2.0.1
+// @version      2.0.2
 // @description  Strip IG to /direct/inbox/ only. Hide nav/badges/feed/reels/explore/stories. Force-close reels on scroll. Auto-mark-read.
 // @author       ElSigmaTom
-// @match        https://*.instagram.com/*
+// @match        https://instagram.com/*
+// @match        https://www.instagram.com/*
+// @match        https://m.instagram.com/*
 // @run-at       document-start
 // @grant        none
 // @updateURL    https://raw.githubusercontent.com/ElSigmaTom/focus-userscripts/main/ig-focus.user.js
@@ -16,7 +18,16 @@
 
   const TAG = '[IG-FOCUS]';
   const log = (...args) => console.log(TAG, ...args);
-  log('v2.0.1 loaded at', location.href);
+  log('v2.0.2 loaded at', location.href);
+  console.warn('[IG-FOCUS] USERSCRIPT IS RUNNING:', {
+    href: location.href,
+    readyState: document.readyState,
+    hidden: document.hidden
+  });
+
+  // TEST_MODE: when true, auto-mark-read fires even if tab is active (so you
+  // can see logs without backgrounding the tab). Flip back to false in normal use.
+  const TEST_MODE = true;
 
   // =========================================================
   // 1. HARD REDIRECT (document-start)
@@ -285,7 +296,7 @@
   }
 
   async function markNotificationsRead() {
-    if (!document.hidden) return;
+    if (!TEST_MODE && !document.hidden) return;
     if (Date.now() - lastNotif < NOTIF_INTERVAL) return;
     lastNotif = Date.now();
     log('Attempting notif panel open (marks read by side-effect)');
@@ -390,18 +401,28 @@
       if (++count >= 10) clearInterval(fast);
     }, 1000);
     setInterval(tick, 60 * 1000);
+    // Debounced MutationObserver via rAF
+    let mutationQueued = false;
     const obs = new MutationObserver(() => {
-      hideSidebarItems();
-      scanThreadList();
-      checkReel();
+      if (mutationQueued) return;
+      mutationQueued = true;
+      requestAnimationFrame(() => {
+        mutationQueued = false;
+        tick();
+      });
     });
     obs.observe(document.body, { childList: true, subtree: true });
     tick();
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', start);
-  } else {
+  function startWhenReady() {
+    if (window.__if_started) return;
+    if (!document.body) {
+      requestAnimationFrame(startWhenReady);
+      return;
+    }
+    window.__if_started = true;
     start();
   }
+  startWhenReady();
 })();

@@ -1,11 +1,15 @@
 // ==UserScript==
 // @name         FB Focus — Messages Only
 // @namespace    https://github.com/ElSigmaTom/focus-userscripts
-// @version      2.0.1
+// @version      2.0.2
 // @description  Strip FB to /messages only. Hide nav/badges/feed/reels/marketplace. Redirect home to messages. Force-close reels on scroll. Auto-mark-read.
 // @author       ElSigmaTom
-// @match        https://*.facebook.com/*
-// @match        https://*.messenger.com/*
+// @match        https://facebook.com/*
+// @match        https://www.facebook.com/*
+// @match        https://web.facebook.com/*
+// @match        https://m.facebook.com/*
+// @match        https://messenger.com/*
+// @match        https://www.messenger.com/*
 // @run-at       document-start
 // @grant        none
 // @updateURL    https://raw.githubusercontent.com/ElSigmaTom/focus-userscripts/main/fb-focus.user.js
@@ -17,7 +21,16 @@
 
   const TAG = '[FB-FOCUS]';
   const log = (...args) => console.log(TAG, ...args);
-  log('v2.0.1 loaded at', location.href);
+  log('v2.0.2 loaded at', location.href);
+  console.warn('[FB-FOCUS] USERSCRIPT IS RUNNING:', {
+    href: location.href,
+    readyState: document.readyState,
+    hidden: document.hidden
+  });
+
+  // TEST_MODE: when true, auto-mark-read fires even if tab is active (so you
+  // can see logs without backgrounding the tab). Flip back to false in normal use.
+  const TEST_MODE = true;
 
   // =========================================================
   // 1. HARD REDIRECT (runs at document-start, before paint)
@@ -264,7 +277,7 @@
   const sleep = ms => new Promise(r => setTimeout(r, ms));
 
   async function markNotificationsRead() {
-    if (!document.hidden) return;
+    if (!TEST_MODE && !document.hidden) return;
     if (Date.now() - lastNotif < NOTIF_INTERVAL) return;
     lastNotif = Date.now();
     log('Attempting notification mark-read');
@@ -289,7 +302,7 @@
   function saveSeen(s) { localStorage.setItem(SEEN_KEY, JSON.stringify(s)); }
 
   async function markMessagesRead() {
-    if (!document.hidden) return;
+    if (!TEST_MODE && !document.hidden) return;
     const seen = loadSeen();
     const now = Date.now();
     const rows = document.querySelectorAll('[role="row"]');
@@ -351,19 +364,28 @@
     }, 1000);
     // Steady scan
     setInterval(tick, 60 * 1000);
-    // MutationObserver for SPA navigation re-renders
+    // MutationObserver for SPA navigation re-renders — debounced via rAF
+    let mutationQueued = false;
     const obs = new MutationObserver(() => {
-      hideNavByText();
-      scanThreadList();
-      checkReel();
+      if (mutationQueued) return;
+      mutationQueued = true;
+      requestAnimationFrame(() => {
+        mutationQueued = false;
+        tick();
+      });
     });
     obs.observe(document.body, { childList: true, subtree: true });
     tick();
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', start);
-  } else {
+  function startWhenReady() {
+    if (window.__ff_started) return;
+    if (!document.body) {
+      requestAnimationFrame(startWhenReady);
+      return;
+    }
+    window.__ff_started = true;
     start();
   }
+  startWhenReady();
 })();
