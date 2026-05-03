@@ -1,14 +1,14 @@
 // ==UserScript==
 // @name         IG Focus — DMs Only
-// @namespace    https://github.com/elsigmatom/focus-userscripts
+// @namespace    https://github.com/ElSigmaTom/focus-userscripts
 // @version      1.0.0
 // @description  Hide IG feed/reels/explore, redirect to /direct/inbox/, kill reel rabbit holes, auto-clear notification badges
-// @author       elsigmatom
+// @author       ElSigmaTom
 // @match        https://*.instagram.com/*
 // @run-at       document-start
 // @grant        none
-// @updateURL    https://raw.githubusercontent.com/elsigmatom/focus-userscripts/main/ig-focus.user.js
-// @downloadURL  https://raw.githubusercontent.com/elsigmatom/focus-userscripts/main/ig-focus.user.js
+// @updateURL    https://raw.githubusercontent.com/ElSigmaTom/focus-userscripts/main/ig-focus.user.js
+// @downloadURL  https://raw.githubusercontent.com/ElSigmaTom/focus-userscripts/main/ig-focus.user.js
 // ==/UserScript==
 
 (function () {

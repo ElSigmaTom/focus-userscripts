@@ -33,8 +33,8 @@ Tampermonkey scripts that strip Facebook and Instagram down to messaging-only �
 
 1. Install [Tampermonkey](https://www.tampermonkey.net/) for your browser (Chrome / Edge / Firefox).
 2. Click these raw URLs — Tampermonkey will prompt to install:
-   - **FB**: https://raw.githubusercontent.com/elsigmatom/focus-userscripts/main/fb-focus.user.js
-   - **IG**: https://raw.githubusercontent.com/elsigmatom/focus-userscripts/main/ig-focus.user.js
+   - **FB**: https://raw.githubusercontent.com/ElSigmaTom/focus-userscripts/main/fb-focus.user.js
+   - **IG**: https://raw.githubusercontent.com/ElSigmaTom/focus-userscripts/main/ig-focus.user.js
 3. Reload `facebook.com` and `instagram.com`. Done.
 
 The scripts auto-update whenever this repo is pushed (Tampermonkey checks daily by default; you can force-check via dashboard → "Check for userscript updates").

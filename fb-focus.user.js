@@ -1,15 +1,15 @@
 // ==UserScript==
 // @name         FB Focus — Messages Only
-// @namespace    https://github.com/elsigmatom/focus-userscripts
+// @namespace    https://github.com/ElSigmaTom/focus-userscripts
 // @version      1.0.0
 // @description  Hide FB feed/reels/marketplace, redirect to /messages, kill reel rabbit holes, auto-clear notification badges
-// @author       elsigmatom
+// @author       ElSigmaTom
 // @match        https://*.facebook.com/*
 // @match        https://*.messenger.com/*
 // @run-at       document-start
 // @grant        none
-// @updateURL    https://raw.githubusercontent.com/elsigmatom/focus-userscripts/main/fb-focus.user.js
-// @downloadURL  https://raw.githubusercontent.com/elsigmatom/focus-userscripts/main/fb-focus.user.js
+// @updateURL    https://raw.githubusercontent.com/ElSigmaTom/focus-userscripts/main/fb-focus.user.js
+// @downloadURL  https://raw.githubusercontent.com/ElSigmaTom/focus-userscripts/main/fb-focus.user.js
 // ==/UserScript==
 
 (function () {
