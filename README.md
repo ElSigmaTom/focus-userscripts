@@ -25,16 +25,10 @@ Both scripts now show a **floating green "FB Focus v2 ✓" / "IG Focus v2 ✓" b
 ## Before & After
 
 ### Facebook
-
-| Before | After |
-|--------|-------|
-| ![FB Before](images/fb-before.png) | ![FB After](images/fb-after.png) |
+![Facebook before and after](images/facebook.png)
 
 ### Instagram
-
-| Before | After |
-|--------|-------|
-| ![IG Before](images/ig-before.png) | ![IG After](images/ig-after.png) |
+![Instagram before and after](images/insta.png)
 
 ## What each does
 
