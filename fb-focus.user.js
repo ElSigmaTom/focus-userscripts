@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         FB Focus — Messages Only
 // @namespace    https://github.com/ElSigmaTom/focus-userscripts
-// @version      2.1.2
+// @version      2.1.3
 // @description  Strip FB to /messages only. Hide nav/badges/feed/reels/marketplace. Redirect home to messages. Force-close reels on scroll. Auto-mark-read.
 // @author       ElSigmaTom
 // @match        https://facebook.com/*
@@ -21,7 +21,7 @@
 
   const TAG = '[FB-FOCUS]';
   const log = (...args) => console.log(TAG, ...args);
-  log('v2.1.2 loaded at', location.href);
+  log('v2.1.3 loaded at', location.href);
   console.warn('[FB-FOCUS] USERSCRIPT IS RUNNING:', {
     href: location.href,
     readyState: document.readyState,
@@ -76,6 +76,9 @@
 
     /* Top-bar shortcut tab list */
     [role="navigation"] [role="tablist"] { display: none !important; }
+
+    /* Disable FB logo click (leads to home feed) */
+    a[href="/"][aria-label="Facebook"] { pointer-events: none !important; cursor: default !important; }
 
     /* Red unread dot badges */
     [aria-label*="unread" i],
@@ -413,7 +416,16 @@
   // =========================================================
   // 8. RUN LOOP
   // =========================================================
+  function guardSpaNavigation() {
+    const p = location.pathname;
+    if (ON_FB && (p === '/' || REDIRECT.test(p))) {
+      log('SPA navigated to', p, '→ redirecting to /messages');
+      location.replace('https://www.facebook.com/messages');
+    }
+  }
+
   function tick() {
+    guardSpaNavigation();
     showIndicator();
     hideNavByText();
     scanThreadList();
