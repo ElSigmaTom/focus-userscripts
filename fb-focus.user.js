@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         FB Focus — Messages Only
 // @namespace    https://github.com/ElSigmaTom/focus-userscripts
-// @version      2.1.4
+// @version      2.1.5
 // @description  Strip FB to /messages only. Hide nav/badges/feed/reels/marketplace. Redirect home to messages. Force-close reels on scroll. Auto-mark-read.
 // @author       ElSigmaTom
 // @match        https://facebook.com/*
@@ -21,7 +21,7 @@
 
   const TAG = '[FB-FOCUS]';
   const log = (...args) => console.log(TAG, ...args);
-  log('v2.1.4 loaded at', location.href);
+  log('v2.1.5 loaded at', location.href);
   console.warn('[FB-FOCUS] USERSCRIPT IS RUNNING:', {
     href: location.href,
     readyState: document.readyState,
@@ -59,27 +59,30 @@
     .__ff_hide { display: none !important; }
     .__ff_hide_preview { display: none !important; }
 
-    /* Direct attribute selectors for nav items */
-    [aria-label="Marketplace"][role="link"],
-    [aria-label="Watch"][role="link"],
-    [aria-label="Reels"][role="link"],
-    [aria-label="Home"][role="link"],
-    [aria-label="Groups"][role="link"],
-    [aria-label="Gaming"][role="link"],
-    [aria-label="Video"][role="link"],
-    [aria-label="Memories"][role="link"],
-    [aria-label="Saved"][role="link"],
-    [aria-label="Friends"][role="link"],
+    /* Nav items — match by aria-label regardless of role (FB uses tab, link, button) */
+    [aria-label="Home"]:not([aria-label="Facebook"]),
+    [aria-label^="Home,"],
+    [aria-label="Marketplace"],
+    [aria-label="Watch"],
+    [aria-label="Reels"],
+    [aria-label="Groups"],
+    [aria-label="Gaming"],
+    [aria-label="Video"],
+    [aria-label="Memories"],
+    [aria-label="Saved"],
+    [aria-label="Friends"],
     [aria-label="Friend requests"],
     [aria-label="Notifications"],
-    [aria-label="Stories"][role="link"] { display: none !important; }
+    [aria-label^="Notifications,"],
+    [aria-label="Stories"] { display: none !important; }
 
-    /* Top-bar shortcut tab list + individual tab items */
+    /* Top-bar shortcut tab list (whole strip) */
     [role="navigation"] [role="tablist"],
-    [role="tablist"],
-    a[aria-label="Home"][role="tab"],
-    a[href="/"][role="tab"],
-    [aria-label="Home"][role="tab"] { display: none !important; }
+    [role="tablist"] { display: none !important; }
+
+    /* Top-bar Home links — any <a href="/"> that isn't the FB logo */
+    a[href="/"]:not([aria-label="Facebook"]),
+    a[href^="/?"]:not([aria-label="Facebook"]) { display: none !important; }
 
     /* Disable FB logo click (leads to home feed) */
     a[href="/"][aria-label="Facebook"] { pointer-events: none !important; cursor: default !important; }
