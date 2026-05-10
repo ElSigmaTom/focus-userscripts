@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         FB Focus — Messages Only
 // @namespace    https://github.com/ElSigmaTom/focus-userscripts
-// @version      2.1.5
+// @version      2.1.6
 // @description  Strip FB to /messages only. Hide nav/badges/feed/reels/marketplace. Redirect home to messages. Force-close reels on scroll. Auto-mark-read.
 // @author       ElSigmaTom
 // @match        https://facebook.com/*
@@ -21,7 +21,7 @@
 
   const TAG = '[FB-FOCUS]';
   const log = (...args) => console.log(TAG, ...args);
-  log('v2.1.5 loaded at', location.href);
+  log('v2.1.6 loaded at', location.href);
   console.warn('[FB-FOCUS] USERSCRIPT IS RUNNING:', {
     href: location.href,
     readyState: document.readyState,
@@ -431,8 +431,28 @@
     }
   }
 
+  // Strip "(N) " unread-count prefix from page title
+  function fixTitle() {
+    const cleaned = document.title.replace(/^\s*\(\d+\)\s*/, '');
+    if (cleaned !== document.title) document.title = cleaned;
+  }
+
+  let titleObsAttached = false;
+  function attachTitleObserver() {
+    if (titleObsAttached) return;
+    const titleEl = document.querySelector('title');
+    if (!titleEl) return;
+    titleObsAttached = true;
+    new MutationObserver(fixTitle).observe(titleEl, {
+      childList: true, characterData: true, subtree: true
+    });
+    log('Title observer attached');
+  }
+
   function tick() {
     guardSpaNavigation();
+    fixTitle();
+    attachTitleObserver();
     showIndicator();
     hideNavByText();
     scanThreadList();
