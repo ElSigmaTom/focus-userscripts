@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         FB Focus — Messages Only
 // @namespace    https://github.com/ElSigmaTom/focus-userscripts
-// @version      2.1.6
+// @version      2.1.7
 // @description  Strip FB to /messages only. Hide nav/badges/feed/reels/marketplace. Redirect home to messages. Force-close reels on scroll. Auto-mark-read.
 // @author       ElSigmaTom
 // @match        https://facebook.com/*
@@ -21,7 +21,7 @@
 
   const TAG = '[FB-FOCUS]';
   const log = (...args) => console.log(TAG, ...args);
-  log('v2.1.6 loaded at', location.href);
+  log('v2.1.7 loaded at', location.href);
   console.warn('[FB-FOCUS] USERSCRIPT IS RUNNING:', {
     href: location.href,
     readyState: document.readyState,
@@ -180,6 +180,35 @@
       span.classList.add('__ff_seen'); // skip on next pass
     }
     if (hidden) log('Hid', hidden, 'nav items by text');
+  }
+
+  // Red notification badges on profile/account button. Pattern: a span/div
+  // containing the screen-reader text "New notification in settings" (or similar).
+  // The visible red dot is rendered via CSS on the badge wrapper.
+  function hideProfileBadges() {
+    let hidden = 0;
+    const nodes = document.querySelectorAll('div:not(.__ff_badge_seen), span:not(.__ff_badge_seen)');
+    for (const el of nodes) {
+      const txt = (el.textContent || '').trim();
+      if (!txt || txt.length > 60) continue;
+      if (/^New notification\b/i.test(txt) || /^\d+ new notification/i.test(txt)) {
+        // Climb to the badge wrapper — the outer span sibling of the profile button
+        let badge = el;
+        // Walk up while the parent is also a single-child wrapper containing only this badge
+        for (let i = 0; i < 4 && badge.parentElement; i++) {
+          const p = badge.parentElement;
+          // Stop if we'd swallow the profile button (which has aria-label="Your profile")
+          if (p.querySelector('[aria-label="Your profile"]')) break;
+          badge = p;
+        }
+        if (!badge.classList.contains('__ff_hide')) {
+          badge.classList.add('__ff_hide');
+          hidden++;
+        }
+        el.classList.add('__ff_badge_seen');
+      }
+    }
+    if (hidden) log('Hid', hidden, 'profile badges');
   }
 
   // =========================================================
@@ -455,6 +484,7 @@
     attachTitleObserver();
     showIndicator();
     hideNavByText();
+    hideProfileBadges();
     scanThreadList();
     checkReel();
     if (ENABLE_AUTO_MARK_READ) {
@@ -470,6 +500,7 @@
     let count = 0;
     const fast = setInterval(() => {
       hideNavByText();
+      hideProfileBadges();
       scanThreadList();
       checkReel();
       if (++count >= 10) clearInterval(fast);
